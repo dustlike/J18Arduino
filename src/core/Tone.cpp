@@ -38,6 +38,7 @@ volatile bool firstTimeRunning = false;
 
 void TC5_Handler (void) __attribute__ ((weak, alias("Tone_Handler")));
 
+
 static inline void resetTC (Tc* TCx)
 {
   // Disable TCx
@@ -50,10 +51,12 @@ static inline void resetTC (Tc* TCx)
   while (TCx->COUNT16.CTRLA.bit.SWRST);
 }
 
+
 void toneAccurateClock (uint32_t accurateSystemCoreClockFrequency)
 {
   toneMaxFrequency = accurateSystemCoreClockFrequency / 2;
 }
+
 
 void tone (uint32_t outputPin, uint32_t frequency, uint32_t duration)
 {
@@ -128,9 +131,9 @@ void tone (uint32_t outputPin, uint32_t frequency, uint32_t duration)
   TONE_TC->COUNT16.CC[TONE_TC_CHANNEL].reg = (uint16_t) ccValue;
   WAIT_TC16_REGS_SYNC(TONE_TC)
 
-  portToggleRegister = &(PORT->Group[g_APinDescription[outputPin].ulPort].OUTTGL.reg);
-  portClearRegister = &(PORT->Group[g_APinDescription[outputPin].ulPort].OUTCLR.reg);
-  portBitMask = (1ul << g_APinDescription[outputPin].ulPin);
+  portToggleRegister = &(PORT->Group[outputPin >> 5].OUTTGL.reg);
+  portClearRegister = &(PORT->Group[outputPin >> 5].OUTCLR.reg);
+  portBitMask = (1ul << (outputPin & 0x1F));
 
   // Enable the TONE_TC interrupt request
   TONE_TC->COUNT16.INTENSET.bit.MC0 = 1;
@@ -150,6 +153,7 @@ void tone (uint32_t outputPin, uint32_t frequency, uint32_t duration)
   NVIC_EnableIRQ(TONE_TC_IRQn);
 }
 
+
 void noTone (uint32_t outputPin)
 {
   resetTC(TONE_TC);
@@ -157,11 +161,8 @@ void noTone (uint32_t outputPin)
   toneIsActive = false;
 }
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 
-void Tone_Handler (void)
+extern "C" void Tone_Handler (void)
 {
   if (toggleCount != 0)
   {
@@ -181,7 +182,3 @@ void Tone_Handler (void)
     toneIsActive = false;
   }
 }
-
-#ifdef __cplusplus
-}
-#endif

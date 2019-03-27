@@ -115,8 +115,10 @@ class Serial_ : public Stream
 {
 public:
 	Serial_(USBDeviceClass &_usb) : usb(_usb), stalled(false) { }
-	void begin(uint32_t baud_count);
-	void begin(unsigned long, uint8_t);
+	
+	// uart config is ignored in USB-CDC
+	void begin(uint32_t, uint32_t, uint32_t, uint16_t =0) {}
+	void configIO(void *, uint32_t, uint32_t) {}
 	void end(void);
 
 	virtual int available(void);

@@ -452,6 +452,7 @@ void USBDeviceClass::initEP(uint32_t ep, uint32_t config)
 	}
 	else if (config == (USB_ENDPOINT_TYPE_BULK | USB_ENDPOINT_OUT(0)))
 	{
+		if (epHandlers[ep]) delete epHandlers[ep];
 		epHandlers[ep] = new DoubleBufferedEPOutHandler(usbd, ep, 256);
 	}
 	else if (config == (USB_ENDPOINT_TYPE_BULK | USB_ENDPOINT_IN(0)))

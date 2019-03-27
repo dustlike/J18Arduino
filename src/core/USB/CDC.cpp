@@ -138,20 +138,6 @@ bool CDC_Setup(USBSetup& setup)
 	return false;
 }
 
-void Serial_::begin(uint32_t /* baud_count */)
-{
-	// uart config is ignored in USB-CDC
-}
-
-void Serial_::begin(uint32_t /* baud_count */, uint8_t /* config */)
-{
-	// uart config is ignored in USB-CDC
-}
-
-void Serial_::end(void)
-{
-}
-
 int Serial_::available(void)
 {
 	return usb.available(CDC_ENDPOINT_OUT);

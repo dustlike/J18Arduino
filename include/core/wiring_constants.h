@@ -26,10 +26,22 @@ extern "C"{
 #define LOW             (0x0)
 #define HIGH            (0x1)
 
-#define INPUT           (0x0)
-#define OUTPUT          (0x1)
-#define INPUT_PULLUP    (0x2)
-#define INPUT_PULLDOWN  (0x3)
+#define INPUT           0
+#define OUTPUT          1
+#define INPUT_PULLUP    2
+#define INPUT_PULLDOWN  3
+#define DISABLE			4
+#define DISABLE_PULLUP	5
+#define DISABLE_PULLDN	6
+
+#define PIO_EXTINT		0x10
+#define PIO_ANALOG		0x11
+#define PIO_SERCOM		0x12
+#define PIO_SERCOM_ALT	0x13
+#define PIO_TIMER		0x14
+#define PIO_TIMER_ALT	0x15
+#define PIO_COM			0x16
+#define PIO_AC_CLK		0x17
 
 #define PI 3.1415926535897932384626433832795
 #define HALF_PI 1.5707963267948966192313216916398

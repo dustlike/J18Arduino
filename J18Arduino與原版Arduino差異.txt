@@ -1,0 +1,82 @@
+1.pinMode()的mode參數支援SAMD21的"DISABLE/PULLUP/PULLDOWN"這三種設定
+
+2.pinMode()的mode參數可傳入PIO_XXX常數，用以取代pinPeripheral()
+
+3.移除Arduino板腳位Mapping，所有跟腳位有關的API都改用Atmel-CMSIS的腳位定義
+也就是PIN_Pxyy (x=A,B  yy=00~31)的形式
+
+4.移除USB訊號以外的所有預定義腳位
+
+5.內建經調整過的I2C與SPI函式庫，不必再另外找
+
+6.UART, I2C, SPI新增configIO方法，用來指定所用的SERCOM與I/O腳位的名稱和多工設定
+必須要在begin()前呼叫過configIO()，否則程式會異常
+
+7.新增PinTuple類別，用途是描述configIO方法的腳位參數
+例如使用I2C時，欲指定 SDA=PB16(Mux C), SCL=PA23(Mux D) 連接到SERCOM5
+就會寫成 configIO(&sercom5, PinTuple(PIN_PB16, PIO_SERCOM), PinTuple(PIN_PA23, PIO_SERCOM_ALT))
+
+8.UART, I2C, SPI物件的建構子不再有參數
+
+9.UART, I2C, SPI物件的begin方法參數改動
+由於變化程度不一而且有點多，直接看附錄《序列通訊物件begin()方法》
+
+10.移除Uart類別，併入HardwareSerial
+
+11.預定義的UART物件Serialx擴增到6個，但都只有宣告
+用到這些傢伙時要再自行定義
+
+12.修復Arduino USB Handler的Memory Leak (未測試)
+
+13.修正detachInterrupt()沒有清掉sense，導致INTFLAG會意外立起的bug
+
+14.所有GPIO腳位不再預設為INPUT
+
+15.analogWrite()只支援DAC，因此除了PA02以外的腳位都無法使用
+未來可能會支援PWM...吧?
+
+
+
+------- 附錄 序列通訊物件begin方法
+
+
+[UART] HardwareSerial::begin()
+
+begin(baud, RX_pinout, TX_pinout);
+begin(baud, RX_pinout, TX_pinout, config);
+
+參數說明
+baud        就baud啊
+RX_pinout   設定RX腳位是SERCOM的哪個PAD
+TX_pinout   設定TX腳位是SERCOM的哪個PAD
+config      UART傳輸設定。若省略此參數則為 8 Byte, No Parity, 1 StopBit
+
+--------------
+
+[SPI] FourWire::begin()
+
+begin()
+// SPI時鐘頻率, 位元順序, CPHA與CPOL設定, 接收腳位選擇, SPI腳位選擇.
+void begin(clock_freq, bit_order, spi_mode, MISO_pinout, MOSI_SCLK_pinout);
+
+參數說明
+clock_freq          SPI的運作頻率。若clock_freq不能整除主時脈的一半，則實際頻率會出現誤差。
+bit_order           填入 MSBFIRST 或 LSBFIRST
+spi_mode            設定CPHA與CPOL
+MISO_pinout         設定MISO是SERCOM的哪個PAD
+MOSI_SCLK_pinout	設定MOSI與SCLK是SERCOM的哪個PAD
+
+--------------
+
+[I2C] TwoWire::begin()
+
+無變更。參數意義與原版Arduino相同
+
+
+
+
+
+
+
+
+

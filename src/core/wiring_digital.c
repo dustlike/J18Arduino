@@ -18,107 +18,152 @@
 
 #include "Arduino.h"
 
-#ifdef __cplusplus
- extern "C" {
-#endif
+
 
 void pinMode( uint32_t ulPin, uint32_t ulMode )
 {
-  // Handle the case the pin isn't usable as PIO
-  if ( g_APinDescription[ulPin].ulPinType == PIO_NOT_A_PIN )
-  {
-    return ;
-  }
-
-  // Set pin mode according to chapter '22.6.3 I/O Pin Configuration'
-  switch ( ulMode )
-  {
-    case INPUT:
-      // Set pin to input mode
-      PORT->Group[g_APinDescription[ulPin].ulPort].PINCFG[g_APinDescription[ulPin].ulPin].reg=(uint8_t)(PORT_PINCFG_INEN) ;
-      PORT->Group[g_APinDescription[ulPin].ulPort].DIRCLR.reg = (uint32_t)(1<<g_APinDescription[ulPin].ulPin) ;
-    break ;
-
-    case INPUT_PULLUP:
-      // Set pin to input mode with pull-up resistor enabled
-      PORT->Group[g_APinDescription[ulPin].ulPort].PINCFG[g_APinDescription[ulPin].ulPin].reg=(uint8_t)(PORT_PINCFG_INEN|PORT_PINCFG_PULLEN) ;
-      PORT->Group[g_APinDescription[ulPin].ulPort].DIRCLR.reg = (uint32_t)(1<<g_APinDescription[ulPin].ulPin) ;
-
-      // Enable pull level (cf '22.6.3.2 Input Configuration' and '22.8.7 Data Output Value Set')
-      PORT->Group[g_APinDescription[ulPin].ulPort].OUTSET.reg = (uint32_t)(1<<g_APinDescription[ulPin].ulPin) ;
-    break ;
-
-    case INPUT_PULLDOWN:
-      // Set pin to input mode with pull-down resistor enabled
-      PORT->Group[g_APinDescription[ulPin].ulPort].PINCFG[g_APinDescription[ulPin].ulPin].reg=(uint8_t)(PORT_PINCFG_INEN|PORT_PINCFG_PULLEN) ;
-      PORT->Group[g_APinDescription[ulPin].ulPort].DIRCLR.reg = (uint32_t)(1<<g_APinDescription[ulPin].ulPin) ;
-
-      // Enable pull level (cf '22.6.3.2 Input Configuration' and '22.8.6 Data Output Value Clear')
-      PORT->Group[g_APinDescription[ulPin].ulPort].OUTCLR.reg = (uint32_t)(1<<g_APinDescription[ulPin].ulPin) ;
-    break ;
-
-    case OUTPUT:
-      // enable input, to support reading back values, with pullups disabled
-      PORT->Group[g_APinDescription[ulPin].ulPort].PINCFG[g_APinDescription[ulPin].ulPin].reg=(uint8_t)(PORT_PINCFG_INEN) ;
-
-      // Set pin to output mode
-      PORT->Group[g_APinDescription[ulPin].ulPort].DIRSET.reg = (uint32_t)(1<<g_APinDescription[ulPin].ulPin) ;
-    break ;
-
-    default:
-      // do nothing
-    break ;
-  }
+	uint32_t grp = ulPin >> 5;
+	
+	if (grp >= PORT_GROUPS) return;
+	
+	uint32_t pin = ulPin & 0x1F;
+	
+	if (ulMode >= 0x10)
+	{
+		//workaround for Errata 12368
+		if (ulPin == PIN_PA24 || ulPin == PIN_PA25)
+		{
+			//PULL won't be disabled automatically when PA24 and PA25 is configured as alternative function
+			PORT->Group[0].PINCFG[pin].bit.INEN = 0;
+		}
+		
+		if (ulPin & 1)	//pin is odd number
+		{
+			PORT->Group[grp].PMUX[pin >> 1].bit.PMUXO = ulMode & 15;
+		}
+		else
+		{
+			PORT->Group[grp].PMUX[pin >> 1].bit.PMUXE = ulMode & 15;
+		}
+		
+		PORT->Group[grp].PINCFG[pin].bit.PMUXEN = 1;
+	}
+	else
+	{
+		uint32_t mask = 1 << pin;
+		
+		switch(ulMode)
+		{
+			case OUTPUT:
+			PORT->Group[grp].PINCFG[pin].reg = 0;
+			PORT->Group[grp].DIRSET.reg = mask;
+			break;
+			
+			case INPUT:
+			PORT->Group[grp].PINCFG[pin].reg = PORT_PINCFG_INEN;
+			PORT->Group[grp].DIRCLR.reg = mask;
+			break;
+			
+			case INPUT_PULLUP:
+			PORT->Group[grp].PINCFG[pin].reg = PORT_PINCFG_INEN | PORT_PINCFG_PULLEN;
+			PORT->Group[grp].DIRCLR.reg = mask;
+			PORT->Group[grp].OUTSET.reg = mask;
+			break;
+			
+			case INPUT_PULLDOWN:
+			PORT->Group[grp].PINCFG[pin].reg = PORT_PINCFG_INEN | PORT_PINCFG_PULLEN;
+			PORT->Group[grp].DIRCLR.reg = mask;
+			PORT->Group[grp].OUTCLR.reg = mask;
+			break;
+			
+			case DISABLE:
+			PORT->Group[grp].PINCFG[pin].reg = 0;
+			PORT->Group[grp].DIRCLR.reg = mask;
+			break;
+			
+			case DISABLE_PULLUP:
+			PORT->Group[grp].PINCFG[pin].reg = PORT_PINCFG_PULLEN;
+			PORT->Group[grp].DIRCLR.reg = mask;
+			PORT->Group[grp].OUTSET.reg = mask;
+			break;
+			
+			case DISABLE_PULLDN:
+			PORT->Group[grp].PINCFG[pin].reg = PORT_PINCFG_PULLEN;
+			PORT->Group[grp].DIRCLR.reg = mask;
+			PORT->Group[grp].OUTCLR.reg = mask;
+			break;
+		}
+	}
 }
+
+
 
 void digitalWrite( uint32_t ulPin, uint32_t ulVal )
 {
-  // Handle the case the pin isn't usable as PIO
-  if ( g_APinDescription[ulPin].ulPinType == PIO_NOT_A_PIN )
-  {
-    return ;
-  }
-
-  EPortType port = g_APinDescription[ulPin].ulPort;
-  uint32_t pin = g_APinDescription[ulPin].ulPin;
-  uint32_t pinMask = (1ul << pin);
-
-  if ( (PORT->Group[port].DIRSET.reg & pinMask) == 0 ) {
-    // the pin is not an output, disable pull-up if val is LOW, otherwise enable pull-up
-    PORT->Group[port].PINCFG[pin].bit.PULLEN = ((ulVal == LOW) ? 0 : 1) ;
-  }
-
-  switch ( ulVal )
-  {
-    case LOW:
-      PORT->Group[port].OUTCLR.reg = pinMask;
-    break ;
-
-    default:
-      PORT->Group[port].OUTSET.reg = pinMask;
-    break ;
-  }
-
-  return ;
+	uint32_t grp = ulPin >> 5;
+	
+	if (grp >= PORT_GROUPS) return;
+	
+	uint32_t pin = ulPin & 0x1F;
+	
+	if (ulVal == LOW)
+	{
+		PORT->Group[grp].OUTCLR.reg = 1 << pin;
+	}
+	else
+	{
+		PORT->Group[grp].OUTSET.reg = 1 << pin;
+	}
 }
+
+
 
 int digitalRead( uint32_t ulPin )
 {
-  // Handle the case the pin isn't usable as PIO
-  if ( g_APinDescription[ulPin].ulPinType == PIO_NOT_A_PIN )
-  {
-    return LOW ;
-  }
-
-  if ( (PORT->Group[g_APinDescription[ulPin].ulPort].IN.reg & (1ul << g_APinDescription[ulPin].ulPin)) != 0 )
-  {
-    return HIGH ;
-  }
-
-  return LOW ;
+	uint32_t grp = ulPin >> 5;
+	
+	if (grp >= PORT_GROUPS) return LOW;
+	
+	uint32_t pin = ulPin & 0x1F;
+	
+	return PORT->Group[grp].IN.reg & (1 << pin)? HIGH : LOW;
 }
 
-#ifdef __cplusplus
-}
-#endif
 
+
+void pinSet(uint32_t pinNum)
+{
+	uint32_t grp = pinNum >> 5;
+	
+	if (grp >= PORT_GROUPS) return;
+	
+	uint32_t pin = pinNum & 0x1F;
+	
+	PORT->Group[grp].OUTSET.reg = 1 << pin;
+}
+
+
+
+void pinClr(uint32_t pinNum)
+{
+	uint32_t grp = pinNum >> 5;
+	
+	if (grp >= PORT_GROUPS) return;
+	
+	uint32_t pin = pinNum & 0x1F;
+	
+	PORT->Group[grp].OUTCLR.reg = 1 << pin;
+}
+
+
+
+void pinToggle(uint32_t pinNum)
+{
+	uint32_t grp = pinNum >> 5;
+	
+	if (grp >= PORT_GROUPS) return;
+	
+	uint32_t pin = pinNum & 0x1F;
+	
+	PORT->Group[grp].OUTTGL.reg = 1 << pin;
+}

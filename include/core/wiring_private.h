@@ -22,20 +22,10 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // Includes Atmel CMSIS
 #include "sam.h"
 
 #include "wiring_constants.h"
 
-int pinPeripheral( uint32_t ulPin, EPioType ulPeripheral );
-
-#ifdef __cplusplus
-} // extern "C"
-
-#include "HardwareSerial.h"
-
-#endif
+// Currently use pinMode() instead.
+int pinPeripheral( uint32_t ulPin, uint32_t ulPeripheral );

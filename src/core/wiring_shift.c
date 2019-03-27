@@ -21,9 +21,7 @@
 #include "wiring_digital.h"
 #include "wiring_private.h"
 
-#ifdef __cplusplus
-extern "C"{
-#endif
+
 
 uint32_t shiftIn( uint32_t ulDataPin, uint32_t ulClockPin, uint32_t ulBitOrder )
 {
@@ -49,6 +47,8 @@ uint32_t shiftIn( uint32_t ulDataPin, uint32_t ulClockPin, uint32_t ulBitOrder )
   return value ;
 }
 
+
+
 void shiftOut( uint32_t ulDataPin, uint32_t ulClockPin, uint32_t ulBitOrder, uint32_t ulVal )
 {
   uint8_t i ;
@@ -68,7 +68,3 @@ void shiftOut( uint32_t ulDataPin, uint32_t ulClockPin, uint32_t ulBitOrder, uin
     digitalWrite( ulClockPin, LOW ) ;
   }
 }
-
-#ifdef __cplusplus
-} // extern "C"
-#endif

@@ -21,136 +21,131 @@
 
 #include <string.h>
 
-static voidFuncPtr callbacksInt[EXTERNAL_NUM_INTERRUPTS];
+
+static voidFuncPtr callbacksInt[16];
+
 
 /* Configure I/O interrupt sources */
 static void __initialize()
 {
-  memset(callbacksInt, 0, sizeof(callbacksInt));
+	memset(callbacksInt, 0, sizeof(callbacksInt));
 
-  NVIC_DisableIRQ(EIC_IRQn);
-  NVIC_ClearPendingIRQ(EIC_IRQn);
-  NVIC_SetPriority(EIC_IRQn, 0);
-  NVIC_EnableIRQ(EIC_IRQn);
+	NVIC_DisableIRQ(EIC_IRQn);
+	NVIC_ClearPendingIRQ(EIC_IRQn);
+	NVIC_SetPriority(EIC_IRQn, 0);
+	NVIC_EnableIRQ(EIC_IRQn);
 
-  // Enable GCLK for IEC (External Interrupt Controller)
-  GCLK->CLKCTRL.reg = (uint16_t) (GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_ID(GCM_EIC));
+	// Enable GCLK for IEC (External Interrupt Controller)
+	GCLK->CLKCTRL.reg = (uint16_t) (GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_ID(GCM_EIC));
 
-/* Shall we do that?
-  // Do a software reset on EIC
-  EIC->CTRL.SWRST.bit = 1 ;
-  while ((EIC->CTRL.SWRST.bit == 1) && (EIC->STATUS.SYNCBUSY.bit == 1)) { }
-*/
-
-  // Enable EIC
-  EIC->CTRL.bit.ENABLE = 1;
-  while (EIC->STATUS.bit.SYNCBUSY == 1) { }
+	// Enable EIC
+	EIC->CTRL.bit.ENABLE = 1;
+	while (EIC->STATUS.bit.SYNCBUSY);
 }
+
 
 /*
  * \brief Specifies a named Interrupt Service Routine (ISR) to call when an interrupt occurs.
  *        Replaces any previous function that was attached to the interrupt.
  */
-void attachInterrupt(uint32_t pin, voidFuncPtr callback, uint32_t mode)
+void attachInterrupt(uint32_t pin_number, voidFuncPtr callback, uint32_t mode)
 {
-  static int enabled = 0;
-  uint32_t config;
-  uint32_t pos;
+	static bool enabled = false;
+	
+	if (!enabled)
+	{
+		__initialize();
+		enabled = true;
+	}
+	
+	//NMI
+	if (pin_number == PIN_PA08) return;
 
-#if ARDUINO_SAMD_VARIANT_COMPLIANCE >= 10606
-  EExt_Interrupts in = g_APinDescription[pin].ulExtInt;
-#else
-  EExt_Interrupts in = digitalPinToInterrupt(pin);
-#endif
-  if (in == NOT_AN_INTERRUPT || in == EXTERNAL_INT_NMI)
-    return;
+	uint32_t in = pin_number & 15;
+	uint32_t cfg = in >> 3;
+	uint32_t pos = (in << 2) & 31;
 
-  if (!enabled) {
-    __initialize();
-    enabled = 1;
-  }
+	// Enable wakeup capability on pin in case being used during sleep
+	EIC->WAKEUP.reg |= (1 << in);
 
-  // Enable wakeup capability on pin in case being used during sleep
-  EIC->WAKEUP.reg |= (1 << in);
+	// Assign pin to EIC
+	pinPeripheral(pin_number, PIO_EXTINT);
 
-  // Assign pin to EIC
-  pinPeripheral(pin, PIO_EXTINT);
+	// Assign callback to interrupt
+	callbacksInt[in] = callback;
+	
+	switch (mode)
+	{
+	case LOW:
+		EIC->CONFIG[cfg].reg |= EIC_CONFIG_SENSE0_LOW_Val << pos;
+		break;
 
-  // Assign callback to interrupt
-  callbacksInt[in] = callback;
+	case HIGH:
+		EIC->CONFIG[cfg].reg |= EIC_CONFIG_SENSE0_HIGH_Val << pos;
+		break;
 
-  // Look for right CONFIG register to be addressed
-  if (in > EXTERNAL_INT_7) {
-    config = 1;
-  } else {
-    config = 0;
-  }
+	case CHANGE:
+		EIC->CONFIG[cfg].reg |= EIC_CONFIG_SENSE0_BOTH_Val << pos;
+		break;
 
-  // Configure the interrupt mode
-  pos = (in - (8 * config)) << 2;
-  switch (mode)
-  {
-    case LOW:
-      EIC->CONFIG[config].reg |= EIC_CONFIG_SENSE0_LOW_Val << pos;
-      break;
+	case FALLING:
+		EIC->CONFIG[cfg].reg |= EIC_CONFIG_SENSE0_FALL_Val << pos;
+		break;
 
-    case HIGH:
-      EIC->CONFIG[config].reg |= EIC_CONFIG_SENSE0_HIGH_Val << pos;
-      break;
+	case RISING:
+		EIC->CONFIG[cfg].reg |= EIC_CONFIG_SENSE0_RISE_Val << pos;
+		break;
+	}
 
-    case CHANGE:
-      EIC->CONFIG[config].reg |= EIC_CONFIG_SENSE0_BOTH_Val << pos;
-      break;
-
-    case FALLING:
-      EIC->CONFIG[config].reg |= EIC_CONFIG_SENSE0_FALL_Val << pos;
-      break;
-
-    case RISING:
-      EIC->CONFIG[config].reg |= EIC_CONFIG_SENSE0_RISE_Val << pos;
-      break;
-  }
-
-  // Enable the interrupt
-  EIC->INTENSET.reg = EIC_INTENSET_EXTINT(1 << in);
+	// Enable the interrupt
+	EIC->INTENSET.reg = EIC_INTENSET_EXTINT(1 << in);
 }
+
 
 /*
  * \brief Turns off the given interrupt.
  */
-void detachInterrupt(uint32_t pin)
+void detachInterrupt(uint32_t pin_number)
 {
-#if (ARDUINO_SAMD_VARIANT_COMPLIANCE >= 10606)
-  EExt_Interrupts in = g_APinDescription[pin].ulExtInt;
-#else
-  EExt_Interrupts in = digitalPinToInterrupt(pin);
-#endif 
-  if (in == NOT_AN_INTERRUPT || in == EXTERNAL_INT_NMI)
-    return;
-
-  EIC->INTENCLR.reg = EIC_INTENCLR_EXTINT(1 << in);
-  
-  // Disable wakeup capability on pin during sleep
-  EIC->WAKEUP.reg &= ~(1 << in);
+	//NMI
+	if (pin_number == PIN_PA08) return;
+	
+	uint32_t in = pin_number & 15;
+	uint32_t cfg = in >> 3;
+	uint32_t pos = (in << 2) & 31;
+	
+	// Disable the interrupt
+	EIC->INTENCLR.reg = EIC_INTENCLR_EXTINT(1 << in);
+	
+	//According to Microchip SAMD21 Datasheet 21.8.8 Interrupt Flag Status and Clear,
+	//  This flag is set when EXTINTx pin matches the external interrupt sense configuration
+	//So we need SENSEx setting to NONE.
+	EIC->CONFIG[cfg].reg &= ~(7ul << pos);
+	
+	// Disable wakeup capability on pin during sleep
+	EIC->WAKEUP.reg &= ~(1 << in);
+	
+	// Clear callback
+	callbacksInt[in] = 0;
 }
+
+
 
 /*
  * External Interrupt Controller NVIC Interrupt Handler
  */
 void EIC_Handler(void)
 {
-  // Test the 16 normal interrupts
-  for (uint32_t i=EXTERNAL_INT_0; i<=EXTERNAL_INT_15; i++)
-  {
-    if ((EIC->INTFLAG.reg & (1 << i)) != 0)
-    {
-      // Call the callback function if assigned
-      if (callbacksInt[i]) {
-        callbacksInt[i]();
-      }
-
-      // Clear the interrupt
-      EIC->INTFLAG.reg = 1 << i;
-    }
-  }
+	uint32_t mask = 0;
+	
+	for (uint32_t i = 0; i < sizeof(callbacksInt)/sizeof(voidFuncPtr); i++)
+	{
+		if (EIC->INTFLAG.reg & mask)
+		{
+			if (callbacksInt[i]) callbacksInt[i]();
+			EIC->INTFLAG.reg = mask;	//clear interrupt
+		}
+		
+		mask <<= 1;
+	}
 }

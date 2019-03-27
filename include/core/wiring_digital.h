@@ -39,17 +39,6 @@ extern void pinMode( uint32_t dwPin, uint32_t dwMode ) ;
  * If the pin has been configured as an OUTPUT with pinMode(), its voltage will be set to the
  * corresponding value: 5V (or 3.3V on 3.3V boards) for HIGH, 0V (ground) for LOW.
  *
- * If the pin is configured as an INPUT, writing a HIGH value with digitalWrite() will enable an internal
- * 20K pullup resistor (see the tutorial on digital pins). Writing LOW will disable the pullup. The pullup
- * resistor is enough to light an LED dimly, so if LEDs appear to work, but very dimly, this is a likely
- * cause. The remedy is to set the pin to an output with the pinMode() function.
- *
- * \note Digital pin PIN_LED is harder to use as a digital input than the other digital pins because it has an LED
- * and resistor attached to it that's soldered to the board on most boards. If you enable its internal 20k pull-up
- * resistor, it will hang at around 1.7 V instead of the expected 5V because the onboard LED and series resistor
- * pull the voltage level down, meaning it always returns LOW. If you must use pin PIN_LED as a digital input, use an
- * external pull down resistor.
- *
  * \param dwPin the pin number
  * \param dwVal HIGH or LOW
  */
@@ -64,8 +53,49 @@ extern void digitalWrite( uint32_t dwPin, uint32_t dwVal ) ;
  */
 extern int digitalRead( uint32_t ulPin ) ;
 
+/**
+ * \brief Change the level of specified digital pin to HIGH.
+ *
+ * \param pinNum The number of the digital pin you want to change
+ */
+void pinSet(uint32_t pinNum);
+
+/**
+ * \brief Change the level of specified digital pin to LOW.
+ *
+ * \param pinNum The number of the digital pin you want to change
+ */
+void pinClr(uint32_t pinNum);
+
+/**
+ * \brief Toggle the level of specified digital pin.
+ *
+ * \param pinNum The number of the digital pin you want to toggle
+ */
+void pinToggle(uint32_t pinNum);
+
+
 #ifdef __cplusplus
 }
+
+
+class PinTuple
+{
+public:
+	PinTuple(uint32_t pin_number, uint32_t mux) { value = pin_number | (mux << PIN_NUMBER_WIDTH); }
+	
+	//convert to Pin Number.
+	operator uint32_t() { return value & ((1 << PIN_NUMBER_WIDTH) - 1); }
+	
+	//get Peripheral Multiplexer
+	uint32_t iomux() { return value >> PIN_NUMBER_WIDTH; }
+	
+private:
+	enum { PIN_NUMBER_WIDTH = 8 };
+	uint32_t value;
+};
+
+
 #endif
 
 #endif /* _WIRING_DIGITAL_ */
