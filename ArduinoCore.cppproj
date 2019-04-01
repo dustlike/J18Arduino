@@ -711,9 +711,6 @@
     <Compile Include="src\core\Reset.cpp">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="src\core\RingBuffer.cpp">
-      <SubType>compile</SubType>
-    </Compile>
     <Compile Include="src\core\SERCOM.cpp">
       <SubType>compile</SubType>
     </Compile>
