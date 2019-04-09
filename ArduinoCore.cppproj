@@ -696,9 +696,6 @@
     <Compile Include="src\core\new.cpp">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="src\core\PreprocessingAssembly\pulse_asm.S">
-      <SubType>compile</SubType>
-    </Compile>
     <Compile Include="src\core\Print.cpp">
       <SubType>compile</SubType>
     </Compile>
@@ -780,7 +777,6 @@
     <Folder Include="src\" />
     <Folder Include="src\core\" />
     <Folder Include="src\core\avr\" />
-    <Folder Include="src\core\PreprocessingAssembly\" />
     <Folder Include="src\core\USB\" />
     <Folder Include="src\variants\" />
   </ItemGroup>
